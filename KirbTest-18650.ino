@@ -1,9 +1,8 @@
 #include <Adafruit_INA219.h>
 #include <Arduino.h>
-#include <TimerOne.h>
 #include <U8g2lib.h>
 
-// ------- I/O PIN MAP --------
+// ------- Arduino I/O PIN MAP --------
 //
 // -L----A----- LCD ------------
 // 12 -> 51
@@ -22,7 +21,7 @@
 // SDA(20)                   -> SDA on INA256 board
 // SCL(21)                   -> SCL on INA256 board
 
-U8G2_UC1701_MINI12864_F_4W_SW_SPI u8g2(U8G2_R0, /* clock=*/ 49, /* data=*/ 50, /* cs=*/ 51, /* dc=*/ 52, /* reset=*/ 53);
+U8G2_UC1701_MINI12864_F_4W_SW_SPI u8g2(U8G2_R0, /*clock=*/ 49, /*data=*/ 50, /*cs=*/ 51, /*dc=*/ 52, /*reset=*/ 53);
 Adafruit_INA219 ina219;
 
 #define RELAY_ON LOW
@@ -62,7 +61,7 @@ float mAh_soFar = 0.0;
 
 
 void setup(void) {
-  //Serial.begin(19200);
+  if (debugMode == 1) { Serial.begin(9600); }
   pinMode(A0, INPUT);                        // Battery test lead from holder
   pinMode(LED_BUILTIN, OUTPUT);              // Self-destruct button
   pinMode(relayControlPin1, OUTPUT);         // Digital pin to relay board "In1"
@@ -81,7 +80,7 @@ void setup(void) {
 }
 
 float getVolts(int vPin) {                  // Custom function to read analog pin voltage and compensate for Arduino fluctuations.
-  int sum = 0;                
+  float sum = 0;                
   float tempVolts;
   for (int i = 0; i < sampleAmount; i++) {  // Voltage reading value smoothing
     sum = sum + analogRead(vPin);           //
@@ -93,7 +92,7 @@ float getVolts(int vPin) {                  // Custom function to read analog pi
 
 void readINA219() {
   float circuitOhms = 0.08;       // Circuit resistance for compensation
-  int temp_mA = 0;                // mA smoothing temp storage
+  float temp_mA = 0;              // mA smoothing temp storage
   float temp_V = 0;               // Load voltage smoothing temp storage
   float temp_shunt = 0;           // Shunt smoothing temp storage
   float vR;
@@ -148,7 +147,7 @@ void loop(void) {
       relayON();                                // and connect the battery to the load.
     }
   }
-  loopCounter = loopCounter + 1;                // Cookie clicker counter
+  loopCounter++;                                // Cookie clicker counter
   getTime();                                    // Update the time variables just before the LCD update
   updateLCD();                                  // Update the LCD
   digitalWrite(LED_BUILTIN, HIGH);              // Visual loop heartbeat
@@ -195,12 +194,12 @@ void updateLCD() {
 
 void relayON() {
   digitalWrite(relayControlPin1, RELAY_ON);
-  //Serial.println("Relay ON");
+  if (debugMode == 1) { Serial.println("Relay ON"); }
 }
 
 void relayOFF() {
   digitalWrite(relayControlPin1, RELAY_OFF);
-  //Serial.println("Relay OFF");
+  if (debugMode == 1) { Serial.println("Relay OFF"); }
 }
 
 void getTime() {  // This entire function was copy/paste'ed from http://www.vwlowen.co.uk/arduino/battery-tester/page3.htm
