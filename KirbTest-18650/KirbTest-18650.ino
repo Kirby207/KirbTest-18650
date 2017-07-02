@@ -28,7 +28,7 @@ Adafruit_INA219 ina219;
 #define RELAY_OFF HIGH
 #define relayControlPin1 12
 #define voltPin A0
-#define sampleAmount 20
+#define sampleAmount 10
 #define cutoffVoltage 2.7
 
 
@@ -49,8 +49,6 @@ unsigned int loopCounter = 0;   // Counts it's eggs before they've hatched.
 
 unsigned long previousTuneMillis = 0;
 const long interval = 120000;  // 2 minutes
-
-
 
 // INA256 Variables
 float shuntvoltage = 0;
@@ -140,12 +138,21 @@ void loop(void) {
   curLoopVolts = getVolts(voltPin);             // Read the "#define voltPin" pin voltage
   curLoopRaw = analogRead(voltPin);             // Read the "#define voltPin" pin analog value
 
+  if (running == 1) {
+    Serial.print((int)hours); Serial.print(":");
+    if (mins < 10) Serial.print("0"); Serial.print(mins); Serial.print(":");
+    if (secs < 10) Serial.print("0");
+    Serial.print(secs); Serial.print(",");
+    Serial.print(curLoopVolts); Serial.print(","); Serial.println(mAh_soFar);
+  }
+
   if (curLoopVolts <= cutoffVoltage) {          // Check if cell voltage is too low, if it is....
     voltage = 666;                              // ... set to 666 to trip an if statement in the GUI update
     if (running == 1) {
-      running = 0;                              // ... flip the running variable to 0 (for the LCD mode display, it's rendered useless if we're into this if statement)
+      voltage = 420;                            // Test Complete message flag for GUI.
+      updateLCD();                              // ... do a final LCD update once cutoff Voltage has been reached, so that the last values and test time are preserved.
       relayOFF();                               // ... disconnect the battery from the load
-      updateLCD();                              // and do a final LCD update once cutoffVoltage has been reached, so that the last values and test time are preserved.
+      running = 0;                              // and flip the running variable to 0 (for the LCD mode display indicator)
       rickRoll();
       do {
         unsigned long currentTuneMillis = millis();
@@ -192,17 +199,15 @@ void updateLCD() {
     float this_hours = (millis() - startMillisec) / (1000.0 * 3600.0);    // Calculate mA used in the last second
     mAh_soFar = mAh_soFar + ((this_hours - last_hours) * current_mA);     //
     last_hours = this_hours;                                              //
-    millisCalc_mAh = millis();                                            //
-    Serial.print((int)hours); Serial.print(":");
-    if (mins < 10) Serial.print("0"); Serial.print(mins); Serial.print(":");
-    if (secs < 10) Serial.print("0");
-    Serial.print(secs); Serial.print(",");
-    Serial.print(curLoopVolts); Serial.print(","); Serial.println(mAh_soFar);
-  }                                                                       //
+    millisCalc_mAh = millis();
+  }
 
   u8g2.setCursor(0, writeLine); u8g2.print("Cell 1: "); writeLine = writeLine + lineIncrement; // Cell 1 is because I plan on expanding this script to support a second INA256 board, 18650 cell and load.
   if (voltage == 666) {
     u8g2.print("No/Dead Cell!");  // Here's our mystery error message!
+  }
+    if (voltage == 420) {
+    u8g2.print(" - TEST COMPLETE -");  // Here's our mystery error message!
   }
   else {
     u8g2.print(curLoopVolts);  // or else we print the voltage as measured at "#define voltPin"
@@ -218,7 +223,7 @@ void updateLCD() {
   if (mins < 10) u8g2.print("0"); u8g2.print(mins); u8g2.print(":");  // Time counter block
   if (secs < 10) u8g2.print("0");                                     //
   u8g2.print(secs);                                                   //
-  
+
   u8g2.setCursor(0, 62); u8g2.print(running);         // Current running mode (debugging)
   u8g2.setCursor(103, 62); u8g2.print(loopCounter);   // Loop counter
   u8g2.sendBuffer();                                  // Send data to the LCD controller
