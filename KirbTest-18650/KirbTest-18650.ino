@@ -38,7 +38,7 @@ float curLoopRaw = 0.0;   // Stores the losing lottery numbers.
 
 byte running = 0;
 
-byte debugMode = 0;           // DO NOT set this to 1 unless you understand the code!
+byte debugMode = 0;   // DO NOT set this to 1 unless you understand the code!
 // this variable set to 1 can lead to the Arduino toggling
 // the relay on and off as fast as it can when the cutoff voltage is reached.
 // THIS CAN CAUSE PHYSICAL DAMAGE TO THE RELAY, DON'T USE THIS PLEASE, UNLESS YOU'VE READ AND UNDERSTAND THE CODE FLOW.
@@ -68,8 +68,8 @@ float mAh_soFar = 0.0;
 
 
 void setup(void) {
-  if (debugMode == 1) {
-    Serial.begin(9600);
+  if (debugMode == 0) {
+    Serial.begin(19200);
   }
   pinMode(A0, INPUT);                        // Battery test lead from holder
   pinMode(3, OUTPUT);                        // Piezo buzzer
@@ -151,10 +151,16 @@ void loop(void) {
         unsigned long currentTuneMillis = millis();
         if (currentTuneMillis - previousTuneMillis >= interval) {
           previousTuneMillis = currentTuneMillis;
-          byte randSong = random(1,4);
-          if (randSong == 1) { tuneMario(1); };
-          if (randSong == 2) { rickRoll(); };
-          if (randSong >= 3) { tuneImperialMarch(); };
+          byte randSong = random(1, 4);
+          if (randSong == 1) {
+            tuneMario(1);
+          };
+          if (randSong == 2) {
+            rickRoll();
+          };
+          if (randSong >= 3) {
+            tuneImperialMarch();
+          };
         }
         digitalWrite(LED_BUILTIN, LOW);         // 102 year loop to blink the builtin LED
         delay(750);                             // to signal the test is over.
@@ -178,7 +184,7 @@ void loop(void) {
 
 void updateLCD() {
   u8g2.clearBuffer();
-  u8g2.setFlipMode(0); // Otherwise occasionally the LCD will flip itself for some unknown reason...
+  u8g2.setFlipMode(0);     // Otherwise the LCD will occasionally flip itself upside-down for some unknown reason...
   byte writeLine = 7;      // First row pixel number
   byte lineIncrement = 9;  // Number of pixels to jump down for every new line
 
@@ -187,6 +193,11 @@ void updateLCD() {
     mAh_soFar = mAh_soFar + ((this_hours - last_hours) * current_mA);     //
     last_hours = this_hours;                                              //
     millisCalc_mAh = millis();                                            //
+    Serial.print((int)hours); Serial.print(":");
+    if (mins < 10) Serial.print("0"); Serial.print(mins); Serial.print(":");
+    if (secs < 10) Serial.print("0");
+    Serial.print(secs); Serial.print(",");
+    Serial.print(curLoopVolts); Serial.print(","); Serial.println(mAh_soFar);
   }                                                                       //
 
   u8g2.setCursor(0, writeLine); u8g2.print("Cell 1: "); writeLine = writeLine + lineIncrement; // Cell 1 is because I plan on expanding this script to support a second INA256 board, 18650 cell and load.
@@ -207,7 +218,7 @@ void updateLCD() {
   if (mins < 10) u8g2.print("0"); u8g2.print(mins); u8g2.print(":");  // Time counter block
   if (secs < 10) u8g2.print("0");                                     //
   u8g2.print(secs);                                                   //
-
+  
   u8g2.setCursor(0, 62); u8g2.print(running);         // Current running mode (debugging)
   u8g2.setCursor(103, 62); u8g2.print(loopCounter);   // Loop counter
   u8g2.sendBuffer();                                  // Send data to the LCD controller
