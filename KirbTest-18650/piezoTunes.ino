@@ -12,8 +12,8 @@
 #define NOTE_B7  3951
 #define NOTE_C8  4186
 #define melodyPin 3
+int song = 0;
 
-//Mario main theme melody
 int melodyMario[] = {
   NOTE_E7, NOTE_E7, 0, NOTE_E7,
   0, NOTE_C7, NOTE_E7, 0,
@@ -41,7 +41,6 @@ int melodyMario[] = {
   NOTE_D7, NOTE_B6, 0, 0
 };
 
-//Mario main them tempo
 int tempoMario[] = {
   12, 12, 12, 12,
   12, 12, 12, 12,
@@ -69,27 +68,66 @@ int tempoMario[] = {
   12, 12, 12, 12,
 };
 
-void tuneMario(void) {
+int melodyMarioMini[] = {
+  NOTE_E7, NOTE_E7, 0, NOTE_E7,
+  0, NOTE_C7, NOTE_E7, 0,
+  NOTE_G7, 0, 0,  0,
+  NOTE_G6, 0, 0, 0,
+};
 
-  int size = sizeof(melodyMario) / sizeof(int);
-  for (int thisNote = 0; thisNote < size; thisNote++) {
+int tempoMarioMini[] = {
+  12, 12, 12, 12,
+  12, 12, 12, 12,
+  12, 12, 12, 12,
+  12, 12, 12, 12,
+};
 
-    // to calculate the note duration, take one second
-    // divided by the note type.
-    //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
-    int noteDuration = 1000 / tempoMario[thisNote];
+void tuneMario(int s) {
+  song = s;
+  if (song == 1) {
+    int size = sizeof(melodyMarioMini) / sizeof(int);
 
-    buzz(melodyPin, melodyMario[thisNote], noteDuration);
+    for (int thisNote = 0; thisNote < size; thisNote++) {
 
-    // to distinguish the notes, set a minimum time between them.
-    // the note's duration + 30% seems to work well:
-    int pauseBetweenNotes = noteDuration * 1.30;
-    delay(pauseBetweenNotes);
+      // to calculate the note duration, take one second
+      // divided by the note type.
+      //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
+      int noteDuration = 1000 / tempoMario[thisNote];
 
-    // stop the tone playing:
-    buzz(melodyPin, 0, noteDuration);
+      buzz(melodyPin, melodyMarioMini[thisNote], noteDuration);
 
-  }
+      // to distinguish the notes, set a minimum time between them.
+      // the note's duration + 30% seems to work well:
+      int pauseBetweenNotes = noteDuration * 1.30;
+      delay(pauseBetweenNotes);
+
+      // stop the tone playing:
+      buzz(melodyPin, 0, noteDuration);
+    }
+
+  };
+  if (song == 2) {
+    int size = sizeof(melodyMario) / sizeof(int);
+
+    for (int thisNote = 0; thisNote < size; thisNote++) {
+
+      // to calculate the note duration, take one second
+      // divided by the note type.
+      //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
+      int noteDuration = 1000 / tempoMario[thisNote];
+
+      buzz(melodyPin, melodyMario[thisNote], noteDuration);
+
+      // to distinguish the notes, set a minimum time between them.
+      // the note's duration + 30% seems to work well:
+      int pauseBetweenNotes = noteDuration * 1.30;
+      delay(pauseBetweenNotes);
+
+      // stop the tone playing:
+      buzz(melodyPin, 0, noteDuration);
+    }
+
+  };
 }
 
 void buzz(int targetPin, long frequency, long length) {

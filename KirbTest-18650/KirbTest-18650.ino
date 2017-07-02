@@ -32,8 +32,9 @@ Adafruit_INA219 ina219;
 #define cutoffVoltage 2.7
 
 
-float voltage = 0.0;      // This variable exists soley for in if statement in the GUI update func to print an error message or not. Probably really hacky.
+float voltage = 0.0;      // This variable exists soley for a single if statement in the GUI update func to print an error message or not. Probably really hacky.
 float curLoopVolts = 0.0; // Stores the winning lottery numbers.
+float curLoopRaw = 0.0;   // Stores the losing lottery numbers.
 
 byte running = 0;
 
@@ -48,6 +49,7 @@ unsigned int loopCounter = 0;   // Counts it's eggs before they've hatched.
 
 unsigned long previousTuneMillis = 0;
 const long interval = 120000;  // 2 minutes
+
 
 
 // INA256 Variables
@@ -71,6 +73,7 @@ void setup(void) {
   }
   pinMode(A0, INPUT);                        // Battery test lead from holder
   pinMode(3, OUTPUT);                        // Piezo buzzer
+  tuneMario(1);
   pinMode(LED_BUILTIN, OUTPUT);              // Self-destruct button
   pinMode(relayControlPin1, OUTPUT);         // Digital pin to relay board "In1"
   digitalWrite(relayControlPin1, RELAY_OFF); // Digital pins start LOW, which means the relay board is ON by default.
@@ -85,7 +88,7 @@ void setup(void) {
   //ina219.setCalibration_16V_400mA();       // Highest precision calibration, low draw ability.
   getTime();                                 // Preload the time variables
   startMillisec = millis();                  //
-  tuneR2D2();
+  randomSeed(analogRead(3) + analogRead(0) / analogRead(2) );
 }
 
 float getVolts(int vPin) {                  // Custom function to read analog pin voltage and compensate for Arduino fluctuations.
@@ -96,6 +99,8 @@ float getVolts(int vPin) {                  // Custom function to read analog pi
     delay(5);                               //
   }                                         //
   tempVolts = ((float)sum / (float)sampleAmount * 5.015) / 1024.0; // 5.015V is the calibrated reference voltage, we need to account for this.
+  // This value will change depending on the individual Arduino board, the power source
+  // and other factors, reading the +5V pin on the Arduino will give you the value you need.
   return tempVolts;
 }
 
@@ -132,20 +137,24 @@ void readINA219() {
 void loop(void) {
   digitalWrite(LED_BUILTIN, LOW);               // Visual loop heartbeat
   readINA219();                                 // Query the INA256 chip
-  curLoopVolts = getVolts(voltPin);             // Read the "#define voltPin" pin analog value
+  curLoopVolts = getVolts(voltPin);             // Read the "#define voltPin" pin voltage
+  curLoopRaw = analogRead(voltPin);             // Read the "#define voltPin" pin analog value
 
   if (curLoopVolts <= cutoffVoltage) {          // Check if cell voltage is too low, if it is....
     voltage = 666;                              // ... set to 666 to trip an if statement in the GUI update
     if (running == 1) {
-      rickRoll(); //
       running = 0;                              // ... flip the running variable to 0 (for the LCD mode display, it's rendered useless if we're into this if statement)
       relayOFF();                               // ... disconnect the battery from the load
       updateLCD();                              // and do a final LCD update once cutoffVoltage has been reached, so that the last values and test time are preserved.
+      rickRoll();
       do {
         unsigned long currentTuneMillis = millis();
         if (currentTuneMillis - previousTuneMillis >= interval) {
           previousTuneMillis = currentTuneMillis;
-          rickRoll();
+          byte randSong = random(1,4);
+          if (randSong == 1) { tuneMario(1); };
+          if (randSong == 2) { rickRoll(); };
+          if (randSong >= 3) { tuneImperialMarch(); };
         }
         digitalWrite(LED_BUILTIN, LOW);         // 102 year loop to blink the builtin LED
         delay(750);                             // to signal the test is over.
@@ -188,7 +197,7 @@ void updateLCD() {
     u8g2.print(curLoopVolts);  // or else we print the voltage as measured at "#define voltPin"
   }
 
-  u8g2.setCursor(0, writeLine); u8g2.print("RAW:      "); u8g2.print(analogRead(voltPin)); u8g2.print(" ("); u8g2.print(curLoopVolts); u8g2.print(" V)"); writeLine = writeLine + lineIncrement;  // Raw analog value, this is here because the prior line may have an error message.
+  u8g2.setCursor(0, writeLine); u8g2.print("RAW:      "); u8g2.print(curLoopRaw); u8g2.print(" ("); u8g2.print(curLoopVolts); u8g2.print(" V)"); writeLine = writeLine + lineIncrement;  // Raw analog value, this is here because the prior line may have an error message.
   u8g2.setCursor(0, writeLine); u8g2.print("L-Volt:   "); u8g2.print(loadvoltage); u8g2.print(" V"); writeLine = writeLine + lineIncrement;                                                       // Voltage from INA256
   u8g2.setCursor(0, writeLine); u8g2.print("L-AMP:    "); u8g2.print(current_mA); u8g2.print(" mA"); writeLine = writeLine + lineIncrement;                                                       // Current draw from INA256
   u8g2.setCursor(0, writeLine); u8g2.print("Capacity: "); u8g2.print(mAh_soFar); u8g2.print(" mA"); writeLine = writeLine + lineIncrement;
