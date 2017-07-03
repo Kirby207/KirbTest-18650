@@ -65,6 +65,10 @@ int mins, secs, tMins;
 float mAh_soFar = 0.0;
 
 
+int serialReportDelay = 500;
+unsigned long serialLastReport;
+
+
 void setup(void) {
   if (debugMode == 0) {
     Serial.begin(19200);
@@ -75,7 +79,7 @@ void setup(void) {
   pinMode(LED_BUILTIN, OUTPUT);              // Self-destruct button
   pinMode(relayControlPin1, OUTPUT);         // Digital pin to relay board "In1"
   digitalWrite(relayControlPin1, RELAY_OFF); // Digital pins start LOW, which means the relay board is ON by default.
-  // I'm using the NO contacts, so this needs to be rectified as soon as the pin is initialized.
+                                             // I'm using the NO contacts, so this needs to be rectified as soon as the pin is initialized.
 
   u8g2.begin();                              // Initialize the LCD library
   u8g2.setFont(u8g2_font_5x7_tf);            //
@@ -85,8 +89,8 @@ void setup(void) {
   ina219.setCalibration_32V_1A();            // Higher precision calibration
   //ina219.setCalibration_16V_400mA();       // Highest precision calibration, low draw ability.
   getTime();                                 // Preload the time variables
-  startMillisec = millis();                  //
-  randomSeed(analogRead(3) + analogRead(0) / analogRead(2) );
+  Serial.println("Time,Voltage,Capacity,Current");
+  randomSeed(analogRead(3));
 }
 
 float getVolts(int vPin) {                  // Custom function to read analog pin voltage and compensate for Arduino fluctuations.
@@ -138,12 +142,21 @@ void loop(void) {
   curLoopVolts = getVolts(voltPin);             // Read the "#define voltPin" pin voltage
   curLoopRaw = analogRead(voltPin);             // Read the "#define voltPin" pin analog value
 
-  if (running == 1) {
+  if ((running == 1) && (millis() >= serialLastReport + serialReportDelay)) {
     Serial.print((int)hours); Serial.print(":");
     if (mins < 10) Serial.print("0"); Serial.print(mins); Serial.print(":");
     if (secs < 10) Serial.print("0");
     Serial.print(secs); Serial.print(",");
-    Serial.print(curLoopVolts); Serial.print(","); Serial.println(mAh_soFar);
+
+    Serial.print(curLoopVolts); Serial.print(","); Serial.print(mAh_soFar); Serial.print(","); Serial.println(current_mA);
+    serialLastReport = millis();
+  }
+
+  if ((running == 1) && (millis() >= millisCalc_mAh + 1000)) {               // If it's been more than 1 real second since the last mA consumed calculation...
+    float this_hours = (millis() - startMillisec) / (1000.0 * 3600.0);    // Calculate mA used in the last second
+    mAh_soFar = mAh_soFar + ((this_hours - last_hours) * current_mA);     //
+    last_hours = this_hours;                                              //
+    millisCalc_mAh = millis();
   }
 
   if (curLoopVolts <= cutoffVoltage) {          // Check if cell voltage is too low, if it is....
@@ -180,6 +193,7 @@ void loop(void) {
   if (curLoopVolts > 2.7) {                     // Check if cell voltage is NOT too low, if it is....
     if (running == 0) {                         // ... and we're just starting out,
       running = 1;                              // ... flip the running byte
+      startMillisec = millis();
       relayON();                                // and connect the battery to the load.
     }
   }
@@ -195,29 +209,21 @@ void updateLCD() {
   byte writeLine = 7;      // First row pixel number
   byte lineIncrement = 9;  // Number of pixels to jump down for every new line
 
-  if (millis() > millisCalc_mAh + 1000) {                                 // If it's been more than 1 real second since the last mA consumed calculation...
-    float this_hours = (millis() - startMillisec) / (1000.0 * 3600.0);    // Calculate mA used in the last second
-    mAh_soFar = mAh_soFar + ((this_hours - last_hours) * current_mA);     //
-    last_hours = this_hours;                                              //
-    millisCalc_mAh = millis();
-  }
-
   u8g2.setCursor(0, writeLine); u8g2.print("Cell 1: "); writeLine = writeLine + lineIncrement; // Cell 1 is because I plan on expanding this script to support a second INA256 board, 18650 cell and load.
   if (voltage == 666) {
     u8g2.print("No/Dead Cell!");  // Here's our mystery error message!
   }
-    if (voltage == 420) {
-    u8g2.print(" - TEST COMPLETE -");  // Here's our mystery error message!
+  if (voltage == 420) {
+    u8g2.print(" - TEST COMPLETE -");
   }
   else {
     u8g2.print(curLoopVolts);  // or else we print the voltage as measured at "#define voltPin"
   }
 
   u8g2.setCursor(0, writeLine); u8g2.print("RAW:      "); u8g2.print(curLoopRaw); u8g2.print(" ("); u8g2.print(curLoopVolts); u8g2.print(" V)"); writeLine = writeLine + lineIncrement;  // Raw analog value, this is here because the prior line may have an error message.
-  u8g2.setCursor(0, writeLine); u8g2.print("L-Volt:   "); u8g2.print(loadvoltage); u8g2.print(" V"); writeLine = writeLine + lineIncrement;                                                       // Voltage from INA256
-  u8g2.setCursor(0, writeLine); u8g2.print("L-AMP:    "); u8g2.print(current_mA); u8g2.print(" mA"); writeLine = writeLine + lineIncrement;                                                       // Current draw from INA256
-  u8g2.setCursor(0, writeLine); u8g2.print("Capacity: "); u8g2.print(mAh_soFar); u8g2.print(" mA"); writeLine = writeLine + lineIncrement;
-  // Calculated mAh consumed
+  u8g2.setCursor(0, writeLine); u8g2.print("L-Volt:   "); u8g2.print(loadvoltage); u8g2.print(" V"); writeLine = writeLine + lineIncrement;                                              // Voltage from INA256
+  u8g2.setCursor(0, writeLine); u8g2.print("L-AMP:    "); u8g2.print(current_mA); u8g2.print(" mA"); writeLine = writeLine + lineIncrement;                                              // Current draw from INA256
+  u8g2.setCursor(0, writeLine); u8g2.print("Capacity: "); u8g2.print(mAh_soFar); u8g2.print(" mA"); writeLine = writeLine + lineIncrement;                                               // Calculated mAh consumed
   u8g2.setCursor(0, writeLine);                                       //
   u8g2.print("Time: "); u8g2.print((int)hours); u8g2.print(":");      //
   if (mins < 10) u8g2.print("0"); u8g2.print(mins); u8g2.print(":");  // Time counter block
@@ -230,11 +236,10 @@ void updateLCD() {
 
   if (debugMode == 1) {
     voltage = 0;  // Obsolete re-zeroing of this variable from initial coding,
-  }
-  // this zero would have allowed for recovering from the "666"
-  // voltage error without resetting the Arduino. Rendered useless
-  // after the 102 year loop was coded in, but left here for debugging.
-  // THIS CAN CAUSE PHYSICAL DAMAGE TO THE RELAY, DON'T USE THIS PLEASE.
+  }               // this zero would have allowed for recovering from the "666"
+                  // voltage error without resetting the Arduino. Rendered useless
+                  // after the 102 year loop was coded in, but left here for debugging.
+                  // THIS CAN CAUSE PHYSICAL DAMAGE TO THE RELAY, DON'T USE THIS PLEASE.
 }
 
 void relayON() {
